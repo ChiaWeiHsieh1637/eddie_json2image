@@ -1,21 +1,63 @@
+function findArticleArray(obj) {
+    console.log('正在搜索的數據:', obj);
+
+    // 如果是陣列，遍歷每個元素尋找文章
+    if (Array.isArray(obj)) {
+        const allArticles = [];
+        obj.forEach(item => {
+            if (item.data && item.data.article && Array.isArray(item.data.article)) {
+                allArticles.push(...item.data.article);
+            }
+        });
+        if (allArticles.length > 0) {
+            console.log('找到文章陣列，總數:', allArticles.length);
+            return allArticles;
+        }
+    }
+    
+    // 如果是物件，檢查 data.article 路徑
+    if (obj && typeof obj === 'object') {
+        if (obj.data && obj.data.article && Array.isArray(obj.data.article)) {
+            console.log('找到 article 陣列');
+            return obj.data.article;
+        }
+        
+        // 遞迴搜索所有屬性
+        for (let key in obj) {
+            const result = findArticleArray(obj[key]);
+            if (result) return result;
+        }
+    }
+    
+    return null;
+}
+
 function extractLinks(data) {
     const resultDiv = document.getElementById('result');
     const showCover = document.getElementById('showCover').checked;
     const showContent = document.getElementById('showContent').checked;
     
     resultDiv.innerHTML = '';
+    console.log('開始處理數據:', data); // 添加除錯信息
 
     try {
-        if (!data.article || !Array.isArray(data.article)) {
-            throw new Error('JSON 格式錯誤：找不到 article 陣列');
+        // 使用深度搜索找到 article 陣列
+        const articles = findArticleArray(data);
+        console.log('找到的文章陣列:', articles); // 添加除錯信息
+        
+        if (!articles) {
+            throw new Error('JSON 格式錯誤：找不到包含圖片的文章陣列');
         }
 
         const links = [];
 
         // 遍歷每個文章
-        data.article.forEach((article, index) => {
+        articles.forEach((article, index) => {
+            console.log(`處理第 ${index + 1} 篇文章:`, article); // 添加除錯信息
+            
             // 提取封面圖片
             if (article.img && showCover) {
+                console.log(`找到封面圖片: ${article.img}`);
                 links.push({
                     type: 'cover',
                     url: article.img,
@@ -28,6 +70,7 @@ function extractLinks(data) {
                 const imgRegex = /<img[^>]+src="([^"]+)"/g;
                 let match;
                 while ((match = imgRegex.exec(article.content)) !== null) {
+                    console.log(`找到內文圖片: ${match[1]}`);
                     links.push({
                         type: 'content',
                         url: match[1],
@@ -37,9 +80,23 @@ function extractLinks(data) {
             }
         });
 
+        console.log('找到的所有連結:', links); // 添加除錯信息
+
         // 顯示結果
         if (links.length === 0) {
-            resultDiv.innerHTML = '<div class="error">未找到任何符合條件的圖片連結</div>';
+            resultDiv.innerHTML = `
+                <div class="error">
+                    未找到任何符合條件的圖片連結
+                    <div class="debug-info">
+                        <strong>調試信息：</strong>
+                        <ul>
+                            <li>是否顯示封面圖片：${showCover}</li>
+                            <li>是否顯示內文圖片：${showContent}</li>
+                            <li>文章數量：${articles.length}</li>
+                        </ul>
+                    </div>
+                </div>
+            `;
             return;
         }
 
